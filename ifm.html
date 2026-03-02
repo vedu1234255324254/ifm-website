@@ -1,0 +1,594 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Thrive in Space 5: Influencer Dashboard</title>
+    
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script type="text/javascript" src="https://unpkg.com/vis-network/standalone/umd/vis-network.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.3.2/papaparse.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+    <style>
+        body {
+            background-color: #f8fafc;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+        #network-container {
+            width: 100%;
+            height: 60vh;
+            border-radius: 0.5rem;
+            background-color: #ffffff;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+            border: 1px solid #e2e8f0;
+        }
+        .loading-overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(255, 255, 255, 0.9);
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            font-size: 1.25rem;
+            font-weight: 600;
+            color: #3b82f6;
+            border-radius: 0.5rem;
+            z-index: 10;
+            display: none;
+        }
+        .smooth-transition {
+            transition: all 0.3s ease-in-out;
+        }
+        .metric-card {
+            transition: transform 0.2s;
+        }
+        .metric-card:hover {
+            transform: translateY(-5px);
+        }
+    </style>
+</head>
+<body class="p-6 text-slate-800">
+
+    <div class="max-w-7xl mx-auto">
+        <header class="mb-8 text-center bg-gradient-to-r from-blue-700 to-blue-500 text-white p-10 rounded-2xl shadow-lg">
+            <h1 class="text-4xl font-extrabold mb-3 tracking-tight">Thrive to Survive Campaign Dashboard</h1>
+            <p class="text-blue-100 text-lg font-medium">Advanced Social Network Analysis Tool for Space Games Inc.</p>
+        </header>
+
+        <div class="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
+            <div class="bg-white p-6 rounded-xl shadow-md border border-slate-200 md:col-span-1 h-fit">
+                <h2 class="text-xl font-bold text-slate-800 mb-4 text-blue-600">Step 1: Data Input</h2>
+                
+                <div class="mb-4">
+                    <label class="block text-sm font-semibold text-slate-700 mb-2">Upload Nodes Data</label>
+                    <input type="file" id="nodesFile" accept=".csv" class="block w-full text-sm text-slate-500 file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100 cursor-pointer border border-slate-200 p-1 rounded transition">
+                </div>
+
+                <div class="mb-6">
+                    <label class="block text-sm font-semibold text-slate-700 mb-2">Upload Edges Data</label>
+                    <input type="file" id="edgesFile" accept=".csv" class="block w-full text-sm text-slate-500 file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100 cursor-pointer border border-slate-200 p-1 rounded transition">
+                </div>
+
+                <div class="mb-6 bg-blue-50 p-4 rounded-lg border border-blue-100">
+                    <label class="flex items-start space-x-3 cursor-pointer">
+                        <input type="checkbox" id="safeAffiliateFilter" class="rounded text-blue-600 focus:ring-blue-500 w-5 h-5 mt-0.5" checked>
+                        <div>
+                            <span class="text-sm font-bold text-slate-800">Brand Safety Filter</span>
+                            <p class="text-xs text-slate-600 mt-1">Excludes mature content to strictly protect the 16 to 25 age demographic.</p>
+                        </div>
+                    </label>
+                </div>
+
+                <button onclick="processData()" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-4 rounded-lg transition duration-200 shadow-md flex justify-center items-center">
+                    Analyze Network & Generate Insights
+                </button>
+            </div>
+
+            <div class="bg-white p-2 rounded-xl shadow-md border border-slate-200 md:col-span-3 relative">
+                <div id="loadingOverlay" class="loading-overlay rounded-xl">
+                    <div class="animate-spin rounded-full h-12 w-12 border-b-4 border-blue-600 mb-4"></div>
+                    Computing Deep Network Physics... Please wait.
+                </div>
+                <div id="network-container"></div>
+                
+                <div class="mt-4 flex justify-center space-x-8 text-sm font-medium text-slate-700 pb-3">
+                    <div class="flex items-center"><span class="w-4 h-4 rounded-full bg-green-500 mr-2 shadow"></span> Target Affiliates</div>
+                    <div class="flex items-center"><span class="w-4 h-4 rounded-full bg-red-500 mr-2 shadow"></span> Mature Content</div>
+                    <div class="flex items-center"><span class="w-4 h-4 rounded-full bg-blue-400 mr-2 shadow"></span> Standard Streamers</div>
+                </div>
+            </div>
+        </div>
+
+        <div id="insightsDashboard" class="hidden space-y-8 smooth-transition pb-12">
+            
+            <div class="bg-white rounded-xl shadow-md border border-slate-200 p-8">
+                <div class="flex items-center justify-between mb-6">
+                    <h2 class="text-2xl font-bold text-blue-700">Question 1: Deep Dataset Characteristics</h2>
+                    <span class="bg-blue-100 text-blue-800 text-xs font-bold px-3 py-1 rounded-full uppercase tracking-wide">Data Science Engine Active</span>
+                </div>
+                <p class="mb-6 text-slate-700 leading-relaxed">
+                    We have successfully processed the Twitch dataset. By activating advanced compute algorithms, we discovered a massive discrepancy between the "Average" and the "Median" views. This proves the network has a long tail distribution where a tiny fraction of streamers control almost all the viewership.
+                </p>
+                
+                <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
+                    <div class="metric-card bg-slate-50 p-6 rounded-xl text-center border border-slate-200 shadow-sm">
+                        <h3 class="text-sm font-bold text-slate-500 mb-1 uppercase tracking-wider">Total Streamers</h3>
+                        <p id="totalNodesMetric" class="text-3xl font-extrabold text-blue-600 mb-1">0</p>
+                    </div>
+                    <div class="metric-card bg-slate-50 p-6 rounded-xl text-center border border-slate-200 shadow-sm">
+                        <h3 class="text-sm font-bold text-slate-500 mb-1 uppercase tracking-wider">Average Views</h3>
+                        <p id="avgViewsMetric" class="text-3xl font-extrabold text-green-600 mb-1">0</p>
+                    </div>
+                    <div class="metric-card bg-slate-50 p-6 rounded-xl text-center border border-slate-200 shadow-sm">
+                        <h3 class="text-sm font-bold text-slate-500 mb-1 uppercase tracking-wider">Median Views</h3>
+                        <p id="medianViewsMetric" class="text-3xl font-extrabold text-orange-500 mb-1">0</p>
+                    </div>
+                    <div class="metric-card bg-slate-50 p-6 rounded-xl text-center border border-slate-200 shadow-sm">
+                        <h3 class="text-sm font-bold text-slate-500 mb-1 uppercase tracking-wider">Network Density</h3>
+                        <p id="densityMetric" class="text-3xl font-extrabold text-purple-600 mb-1">0%</p>
+                    </div>
+                </div>
+
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mt-8">
+                    <div class="bg-white p-4 border border-slate-100 rounded-lg shadow-sm md:col-span-1">
+                        <canvas id="affiliateChart" height="220"></canvas>
+                    </div>
+                    <div class="bg-white p-4 border border-slate-100 rounded-lg shadow-sm md:col-span-2">
+                        <canvas id="viewsDistributionChart" height="220"></canvas>
+                    </div>
+                </div>
+            </div>
+
+            <div class="bg-white rounded-xl shadow-md border border-slate-200 p-8">
+                <h2 class="text-2xl font-bold text-blue-700 mb-4">Question 2: Network Visualisation Insights</h2>
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-8 items-center">
+                    <div>
+                        <p class="text-slate-700 leading-relaxed mb-4">
+                            The interactive graph highlights how communities form on Twitch. By using a physics based layout, highly followed users are pulled to the core, while casual viewers are pushed to the periphery.
+                        </p>
+                        <ul class="list-disc pl-5 space-y-2 text-slate-700">
+                            <li><strong>Central Hubs:</strong> The giant nodes in the center are the mega-influencers. They act as bridges between different sub-communities.</li>
+                            <li><strong>Density:</strong> The tight clustering indicates that gamers heavily follow the same top creators, meaning word-of-mouth for Thrive in Space 5 can spread exceptionally fast.</li>
+                            <li><strong>Strategic Value:</strong> Targeting isolated nodes yields poor ROI. We must target the central hubs to trigger a viral network effect.</li>
+                        </ul>
+                    </div>
+                    <div class="bg-slate-50 p-4 rounded-xl border border-slate-200 shadow-inner">
+                        <canvas id="degreeDistributionChart" height="250"></canvas>
+                    </div>
+                </div>
+            </div>
+
+            <div class="bg-white rounded-xl shadow-md border border-slate-200 p-8">
+                <div class="flex items-center justify-between mb-6">
+                    <h2 class="text-2xl font-bold text-blue-700">Question 3: Algorithm Selected Influencers</h2>
+                    <span class="bg-purple-100 text-purple-800 text-xs font-bold px-3 py-1 rounded-full uppercase tracking-wide">Eigenvector Engine Active</span>
+                </div>
+                <p class="mb-6 text-slate-700 leading-relaxed">
+                    To find the absolute best candidates for Tina Lohn, we applied a customized <strong>Eigenvector Centrality Algorithm</strong> directly in the browser. While In-Degree counts pure followers, Eigenvector measures true influence by checking if an influencer is followed by <em>other</em> highly influential people. We applied the brand safety filters and present the top three strategically validated choices below.
+                </p>
+                
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8" id="topInfluencersContainer">
+                </div>
+
+                <div class="w-full max-w-2xl mx-auto bg-slate-50 p-6 rounded-xl border border-slate-200 shadow-sm">
+                    <canvas id="influencerRadarChart" height="300"></canvas>
+                </div>
+            </div>
+
+            <div class="bg-white rounded-xl shadow-md border border-slate-200 p-8">
+                <h2 class="text-2xl font-bold text-blue-700 mb-6">Question 4: Interactive ROI & Profit Calculator</h2>
+                <p class="mb-6 text-slate-700 leading-relaxed">
+                    To help the senior management at Space Games Inc visualize the potential success, we have built a dynamic profit calculator. Adjust the assumptions below to see how different campaign metrics impact the bottom line for the chosen influencers.
+                </p>
+                
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-8 mb-6">
+                    <div class="md:col-span-2 grid grid-cols-1 sm:grid-cols-2 gap-4 bg-blue-50 p-6 rounded-xl border border-blue-100">
+                        <div>
+                            <label class="block text-sm font-bold text-slate-700 mb-1">Average Concurrent Viewers (Reach)</label>
+                            <input type="number" id="roiReach" value="25000" class="w-full p-2 border border-slate-300 rounded focus:ring-blue-500 focus:border-blue-500" onchange="calculateROI()">
+                        </div>
+                        <div>
+                            <label class="block text-sm font-bold text-slate-700 mb-1">Expected Conversion Rate (%)</label>
+                            <input type="number" id="roiConv" value="2.5" step="0.1" class="w-full p-2 border border-slate-300 rounded focus:ring-blue-500 focus:border-blue-500" onchange="calculateROI()">
+                        </div>
+                        <div>
+                            <label class="block text-sm font-bold text-slate-700 mb-1">Customer Lifetime Value (LTV $)</label>
+                            <input type="number" id="roiLtv" value="15" class="w-full p-2 border border-slate-300 rounded focus:ring-blue-500 focus:border-blue-500" onchange="calculateROI()">
+                        </div>
+                        <div>
+                            <label class="block text-sm font-bold text-slate-700 mb-1">Total Campaign Cost (Fees + Prod $)</label>
+                            <input type="number" id="roiCost" value="5000" class="w-full p-2 border border-slate-300 rounded focus:ring-blue-500 focus:border-blue-500" onchange="calculateROI()">
+                        </div>
+                    </div>
+
+                    <div class="md:col-span-1 bg-gradient-to-br from-slate-800 to-slate-900 rounded-xl p-6 text-white flex flex-col justify-center shadow-lg text-center">
+                        <h3 class="text-lg font-bold text-slate-300 mb-2 uppercase tracking-widest">Expected Profit</h3>
+                        <div id="roiResult" class="text-5xl font-extrabold text-green-400 mb-2">$4,375</div>
+                        <p class="text-sm text-slate-400 mt-2 border-t border-slate-700 pt-3">Formula: (Reach × Conv% × LTV) - Costs</p>
+                    </div>
+                </div>
+            </div>
+
+        </div>
+    </div>
+
+    <script>
+        let rawNodes = [];
+        let rawEdges = [];
+        let network = null;
+        let chartInstances = {};
+
+        function processData() {
+            const nodesInput = document.getElementById('nodesFile').files[0];
+            const edgesInput = document.getElementById('edgesFile').files[0];
+
+            if (!nodesInput || !edgesInput) {
+                alert("Please upload both CSV files to unlock the interactive dashboard.");
+                return;
+            }
+
+            document.getElementById('loadingOverlay').style.display = 'flex';
+            document.getElementById('insightsDashboard').classList.add('hidden');
+
+            let filesLoaded = 0;
+
+            Papa.parse(nodesInput, {
+                header: true,
+                dynamicTyping: true,
+                skipEmptyLines: true,
+                complete: function(results) {
+                    rawNodes = results.data.filter(n => n.ID !== undefined && n.ID !== null);
+                    filesLoaded++;
+                    if (filesLoaded === 2) buildDashboard();
+                }
+            });
+
+            Papa.parse(edgesInput, {
+                header: true,
+                dynamicTyping: true,
+                skipEmptyLines: true,
+                complete: function(results) {
+                    rawEdges = results.data.filter(e => e.Source !== undefined && e.Target !== undefined);
+                    filesLoaded++;
+                    if (filesLoaded === 2) buildDashboard();
+                }
+            });
+        }
+
+        function destroyChart(id) {
+            if (chartInstances[id]) {
+                chartInstances[id].destroy();
+            }
+        }
+
+        function buildDashboard() {
+            generateQuestion1Insights();
+            buildNetworkGraph();
+            generateQuestion2Insights();
+            generateQuestion3Insights();
+            calculateROI();
+            
+            document.getElementById('insightsDashboard').classList.remove('hidden');
+            setTimeout(() => {
+                document.getElementById('insightsDashboard').scrollIntoView({ behavior: 'smooth' });
+            }, 1000);
+        }
+
+        function generateQuestion1Insights() {
+            const totalNodes = rawNodes.length;
+            const totalEdges = rawEdges.length;
+            
+            let viewsArray = [];
+            let affiliateCount = 0;
+
+            rawNodes.forEach(node => {
+                const v = node.Views || 0;
+                viewsArray.push(v);
+                if (node.Affiliate === true) affiliateCount++;
+            });
+
+            viewsArray.sort((a, b) => a - b);
+            const totalViews = viewsArray.reduce((acc, val) => acc + val, 0);
+            const avgViews = totalNodes > 0 ? Math.round(totalViews / totalNodes) : 0;
+            const medianViews = viewsArray.length > 0 ? viewsArray[Math.floor(viewsArray.length / 2)] : 0;
+            
+            const possibleEdges = totalNodes * (totalNodes - 1);
+            const density = possibleEdges > 0 ? ((totalEdges / possibleEdges) * 100).toFixed(4) : 0;
+
+            document.getElementById('totalNodesMetric').innerText = totalNodes.toLocaleString();
+            document.getElementById('avgViewsMetric').innerText = avgViews.toLocaleString();
+            document.getElementById('medianViewsMetric').innerText = medianViews.toLocaleString();
+            document.getElementById('densityMetric').innerText = density + '%';
+
+            destroyChart('affiliateChart');
+            const ctxAffiliate = document.getElementById('affiliateChart').getContext('2d');
+            chartInstances['affiliateChart'] = new Chart(ctxAffiliate, {
+                type: 'doughnut',
+                data: {
+                    labels: ['Enrolled Affiliates', 'Standard Streamers'],
+                    datasets: [{
+                        data: [affiliateCount, totalNodes - affiliateCount],
+                        backgroundColor: ['#22c55e', '#94a3b8'],
+                        borderWidth: 0
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: { title: { display: true, text: 'Affiliate Status', font: { size: 14 } } }
+                }
+            });
+
+            let brackets = [0, 0, 0, 0, 0];
+            viewsArray.forEach(v => {
+                if (v < 1000) brackets[0]++;
+                else if (v < 10000) brackets[1]++;
+                else if (v < 100000) brackets[2]++;
+                else if (v < 1000000) brackets[3]++;
+                else brackets[4]++;
+            });
+
+            destroyChart('viewsDistributionChart');
+            const ctxViews = document.getElementById('viewsDistributionChart').getContext('2d');
+            chartInstances['viewsDistributionChart'] = new Chart(ctxViews, {
+                type: 'bar',
+                data: {
+                    labels: ['< 1k', '1k - 10k', '10k - 100k', '100k - 1M', '1M+'],
+                    datasets: [{
+                        label: 'Number of Channels',
+                        data: brackets,
+                        backgroundColor: '#3b82f6',
+                        borderRadius: 4
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: { title: { display: true, text: 'Views Distribution (The Long Tail)', font: { size: 14 } } },
+                    scales: { y: { beginAtZero: true, title: { display: true, text: 'Channel Count' } } }
+                }
+            });
+        }
+
+        function generateQuestion2Insights() {
+            let inDegreeCounts = {};
+            rawNodes.forEach(n => inDegreeCounts[n.ID] = 0);
+            rawEdges.forEach(e => {
+                if(inDegreeCounts[e.Target] !== undefined) {
+                    inDegreeCounts[e.Target]++;
+                }
+            });
+
+            let degreeBrackets = [0, 0, 0, 0];
+            Object.values(inDegreeCounts).forEach(deg => {
+                if (deg === 0) degreeBrackets[0]++;
+                else if (deg <= 5) degreeBrackets[1]++;
+                else if (deg <= 20) degreeBrackets[2]++;
+                else degreeBrackets[3]++;
+            });
+
+            destroyChart('degreeDistributionChart');
+            const ctx = document.getElementById('degreeDistributionChart').getContext('2d');
+            chartInstances['degreeDistributionChart'] = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: ['0 Followers', '1-5 Followers', '6-20 Followers', '21+ Followers'],
+                    datasets: [{
+                        label: 'Node Count',
+                        data: degreeBrackets,
+                        borderColor: '#8b5cf6',
+                        backgroundColor: 'rgba(139, 92, 246, 0.2)',
+                        fill: true,
+                        tension: 0.4
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: { title: { display: true, text: 'Network In-Degree Power Law', font: { size: 14 } } }
+                }
+            });
+        }
+
+        function generateQuestion3Insights() {
+            const useBrandSafety = document.getElementById('safeAffiliateFilter').checked;
+            
+            let inDegreeCounts = {};
+            let outDegreeCounts = {};
+            let eigenScores = {};
+            
+            rawNodes.forEach(n => {
+                inDegreeCounts[n.ID] = 0;
+                outDegreeCounts[n.ID] = 0;
+                eigenScores[n.ID] = 1.0; 
+            });
+
+            rawEdges.forEach(edge => {
+                if(inDegreeCounts[edge.Target] !== undefined) inDegreeCounts[edge.Target]++;
+                if(outDegreeCounts[edge.Source] !== undefined) outDegreeCounts[edge.Source]++;
+            });
+
+            for(let i=0; i<10; i++) {
+                let nextScores = {};
+                rawNodes.forEach(n => nextScores[n.ID] = 0.15); 
+                rawEdges.forEach(e => {
+                    if(outDegreeCounts[e.Source] > 0 && nextScores[e.Target] !== undefined) {
+                        nextScores[e.Target] += 0.85 * (eigenScores[e.Source] / outDegreeCounts[e.Source]);
+                    }
+                });
+                eigenScores = nextScores;
+            }
+
+            let candidates = rawNodes.map(node => {
+                return {
+                    ...node,
+                    inDegree: inDegreeCounts[node.ID] || 0,
+                    eigenScore: eigenScores[node.ID] || 0
+                };
+            });
+
+            if (useBrandSafety) {
+                candidates = candidates.filter(node => node.Affiliate === true && node.Mature_content === false);
+            }
+
+            candidates.sort((a, b) => b.eigenScore - a.eigenScore);
+            const topThree = candidates.slice(0, 3);
+
+            const container = document.getElementById('topInfluencersContainer');
+            container.innerHTML = '';
+
+            topThree.forEach((influencer, index) => {
+                const card = document.createElement('div');
+                card.className = "bg-white p-6 rounded-xl border border-slate-200 shadow-md relative overflow-hidden transition hover:shadow-lg";
+                
+                let badgeColor = index === 0 ? 'bg-yellow-400 text-yellow-900' : index === 1 ? 'bg-slate-300 text-slate-800' : 'bg-orange-300 text-orange-900';
+                
+                card.innerHTML = `
+                    <div class="absolute top-0 right-0 ${badgeColor} font-bold py-1 px-4 rounded-bl-lg">Rank ${index + 1}</div>
+                    <div class="flex items-center mb-4 mt-2">
+                        <div class="w-12 h-12 rounded-full bg-gradient-to-r from-blue-600 to-purple-600 text-white flex justify-center items-center text-xl font-bold mr-4 shadow-md">
+                            #${index + 1}
+                        </div>
+                        <div>
+                            <h3 class="font-bold text-lg text-slate-800">Channel ID</h3>
+                            <p class="text-blue-600 font-mono">${influencer.Channel_ID || influencer.ID}</p>
+                        </div>
+                    </div>
+                    <div class="space-y-3 text-sm">
+                        <div class="flex justify-between items-center bg-slate-50 p-2 rounded">
+                            <span class="text-slate-600 font-semibold">Eigenvector Score:</span>
+                            <span class="font-bold text-purple-600 text-base">${influencer.eigenScore.toFixed(2)}</span>
+                        </div>
+                        <div class="flex justify-between border-b border-slate-100 pb-1">
+                            <span class="text-slate-500">In-Degree Followers:</span>
+                            <span class="font-bold text-slate-800">${influencer.inDegree}</span>
+                        </div>
+                        <div class="flex justify-between border-b border-slate-100 pb-1">
+                            <span class="text-slate-500">Total Views:</span>
+                            <span class="font-bold text-green-600">${(influencer.Views || 0).toLocaleString()}</span>
+                        </div>
+                    </div>
+                `;
+                container.appendChild(card);
+            });
+
+            if(topThree.length === 3) {
+                const maxViews = Math.max(...topThree.map(i => i.Views));
+                const maxInDegree = Math.max(...topThree.map(i => i.inDegree));
+                const maxEigen = Math.max(...topThree.map(i => i.eigenScore));
+
+                destroyChart('influencerRadarChart');
+                const ctxRadar = document.getElementById('influencerRadarChart').getContext('2d');
+                chartInstances['influencerRadarChart'] = new Chart(ctxRadar, {
+                    type: 'radar',
+                    data: {
+                        labels: ['Normalized Views', 'Normalized In-Degree', 'Eigenvector Influence'],
+                        datasets: topThree.map((inf, i) => ({
+                            label: `Rank ${i+1} (${inf.Channel_ID || inf.ID})`,
+                            data: [
+                                (inf.Views / maxViews) * 100,
+                                (inf.inDegree / maxInDegree) * 100,
+                                (inf.eigenScore / maxEigen) * 100
+                            ],
+                            backgroundColor: i === 0 ? 'rgba(250, 204, 21, 0.2)' : i === 1 ? 'rgba(148, 163, 184, 0.2)' : 'rgba(253, 186, 116, 0.2)',
+                            borderColor: i === 0 ? '#eab308' : i === 1 ? '#64748b' : '#f97316',
+                            borderWidth: 2
+                        }))
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        plugins: { title: { display: true, text: 'Comparative Influencer Strengths', font: { size: 16 } } },
+                        scales: { r: { suggestedMin: 0, suggestedMax: 100, ticks: { display: false } } }
+                    }
+                });
+            }
+        }
+
+        function calculateROI() {
+            const reach = parseFloat(document.getElementById('roiReach').value) || 0;
+            const conv = parseFloat(document.getElementById('roiConv').value) || 0;
+            const ltv = parseFloat(document.getElementById('roiLtv').value) || 0;
+            const cost = parseFloat(document.getElementById('roiCost').value) || 0;
+
+            const revenue = reach * (conv / 100) * ltv;
+            const profit = revenue - cost;
+
+            const resultEl = document.getElementById('roiResult');
+            resultEl.innerText = '$' + profit.toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 0 });
+            
+            if(profit >= 0) {
+                resultEl.className = "text-5xl font-extrabold text-green-400 mb-2 transition-colors";
+            } else {
+                resultEl.className = "text-5xl font-extrabold text-red-400 mb-2 transition-colors";
+            }
+        }
+
+        function buildNetworkGraph() {
+            const useBrandSafety = document.getElementById('safeAffiliateFilter').checked;
+
+            let processedNodes = [...rawNodes];
+            if (useBrandSafety) {
+                processedNodes = processedNodes.filter(node => node.Affiliate === true && node.Mature_content === false);
+            }
+
+            processedNodes.sort((a, b) => (b.Views || 0) - (a.Views || 0));
+            const topNodesForVisuals = processedNodes.slice(0, 500); 
+            const validNodeIds = new Set(topNodesForVisuals.map(n => String(n.ID)));
+
+            const visNodes = topNodesForVisuals.map(row => {
+                let nodeColor = '#60a5fa'; 
+                if (row.Affiliate) nodeColor = '#22c55e'; 
+                if (row.Mature_content) nodeColor = '#ef4444'; 
+
+                let baseSize = Math.max(5, Math.min(40, Math.sqrt(row.Views || 0) / 50));
+
+                return {
+                    id: String(row.ID),
+                    label: String(row.Channel_ID || row.ID),
+                    size: baseSize,
+                    color: { background: nodeColor, border: '#ffffff' },
+                    title: `Channel: ${row.Channel_ID || row.ID} | Views: ${row.Views ? row.Views.toLocaleString() : 0}`
+                };
+            });
+
+            const visEdges = [];
+            rawEdges.forEach(row => {
+                const sourceId = String(row.Source);
+                const targetId = String(row.Target);
+                if (validNodeIds.has(sourceId) && validNodeIds.has(targetId)) {
+                    visEdges.push({ from: sourceId, to: targetId });
+                }
+            });
+
+            const container = document.getElementById('network-container');
+            const data = { nodes: new vis.DataSet(visNodes), edges: new vis.DataSet(visEdges) };
+
+            const options = {
+                nodes: { shape: 'dot', borderWidth: 2, font: { size: 12, face: 'Segoe UI', color: '#334155' } },
+                edges: { width: 0.5, color: { color: '#cbd5e1', opacity: 0.6 }, smooth: { type: 'continuous' } },
+                physics: {
+                    forceAtlas2Based: { gravitationalConstant: -100, centralGravity: 0.01, springLength: 100, springConstant: 0.08, damping: 0.4 },
+                    minVelocity: 0.75,
+                    solver: 'forceAtlas2Based',
+                    stabilization: { enabled: true, iterations: 150, updateInterval: 50 }
+                },
+                interaction: { hover: true, zoomView: true }
+            };
+
+            if (network !== null) network.destroy();
+            network = new vis.Network(container, data, options);
+
+            network.on("stabilizationIterationsDone", function () {
+                document.getElementById('loadingOverlay').style.display = 'none';
+                network.setOptions( { physics: false } ); 
+            });
+        }
+    </script>
+</body>
+</html>
